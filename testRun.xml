@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suite name="inukatestsuite">
+   <test name="Regression">
+        <classes>
+             <class name="test.philips.com.testsuite.LoginTestCases"/> 
+             <class name="test.philips.com.testsuite.AddHeroTestCases"/>            
+        </classes>
+    </test>
+ </suite>
