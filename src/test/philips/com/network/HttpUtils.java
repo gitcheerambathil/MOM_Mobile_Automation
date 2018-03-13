@@ -78,7 +78,8 @@ public class HttpUtils extends SetupDriver {
 		else if(urlType.equalsIgnoreCase("updateTestStepResult"))
 			return updateStepUrl;
 		else if(urlType.equalsIgnoreCase("uploadFileUrl"))
-			return uploadFileUrl+testRunId+"/"+testCaseId+"/"+testPointId+"/"+testStepId+"?fileName=";
+			//return uploadFileUrl+testRunId+"/"+testCaseId+"/"+testPointId+"/"+testStepId+"?fileName=";
+			return uploadFileUrl+testRunId+"/"+testCaseId+"/"+testPointId+"?fileName=";
 		else
 			return null;
 		
