@@ -1,14 +1,9 @@
 package test.philips.com.utils;
 
-import java.awt.Rectangle;
-import java.awt.Robot;
-import java.awt.Toolkit;
-import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -26,15 +21,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.UUID;
-
-import javax.imageio.ImageIO;
-
-import jxl.Sheet;
-import jxl.Workbook;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
+import org.apache.pdfbox.io.IOUtils;
 import org.apache.poi.hssf.usermodel.HSSFCellStyle;
 import org.apache.poi.hssf.usermodel.HSSFSheet;
 import org.apache.poi.hssf.util.HSSFColor;
@@ -43,15 +33,21 @@ import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
 import org.json.JSONObject;
 import org.openqa.selenium.By;
+import org.openqa.selenium.Dimension;
 import org.openqa.selenium.OutputType;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.remote.RemoteWebDriver;
-import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.WebDriverWait;
-
-import test.philips.com.network.HttpUtils;
+import org.openqa.selenium.interactions.touch.TouchActions;
 
 import com.relevantcodes.extentreports.LogStatus;
+
+import io.appium.java_client.MobileBy;
+import io.appium.java_client.MobileElement;
+import io.appium.java_client.TouchAction;
+import io.appium.java_client.android.AndroidDriver;
+import io.appium.java_client.touch.offset.PointOption;
+import jxl.Sheet;
+import jxl.Workbook;
+import test.philips.com.network.HttpUtils;
 
 /**
  * This class contains all the methods that can be reused in all the test case classes. 
@@ -62,10 +58,7 @@ public class ReusableMethods extends SetupDriver {
 	
 	public static Map<String,String> TEST_DATA=new HashMap<String,String>();
     public static SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH.mm.ss");
-    public static String screenshotFileName = null;
-    public static String videoFileName = null;
-    public static String videoFilePath = null;
-    public static String screenshotFilePath = null;
+    public static String videoFileName,videoFilePath,screenshotFilePath,screenshotFileName,logFilePath;
 		
   	/**
   	 * This function will find the number of test scenarios from the test data excel file. Based on the excel file sheet/tab name passed as parameter, it will open the file and find number of test scearios in that.
@@ -76,7 +69,7 @@ public class ReusableMethods extends SetupDriver {
   	public static int getNumberOfTestScenarios(String excelSheetTabName) throws Exception 
   	{
   			int rowCount=0;
-  			File src=new File(config.getProperty("testDataPath"));
+  			File src=new File(SetupDriver.class.getClassLoader().getResource(config.getProperty("testDataPath")).getPath());
   		    Workbook workbook=Workbook.getWorkbook(src);
   		    Sheet worksheet=workbook.getSheet(excelSheetTabName);
   		    rowCount=worksheet.getRows();
@@ -93,7 +86,7 @@ public class ReusableMethods extends SetupDriver {
   	public static void getTestData(String excelSheetTabName,int excelSheetRowId) throws Exception{
   			Map<String,String> dataSource=new HashMap<String,String>();
   		    String col,row = null;
-  			File src=new File(config.getProperty("testDataPath"));
+  		    File src=new File(SetupDriver.class.getClassLoader().getResource(config.getProperty("testDataPath")).getPath());
   		    Workbook workbook=Workbook.getWorkbook(src);
   		    Sheet worksheet=workbook.getSheet(excelSheetTabName);
   				  for (int j=0;j<worksheet.getColumns();j++){
@@ -162,10 +155,15 @@ public class ReusableMethods extends SetupDriver {
   	 * @param passwordTestDataField - Keyword of the password test data in excel and repository
   	 * @throws Exception
   	 */
-  	public static void loginToApplication() throws Exception {
-  		inputTextData("HERO_LOGINPAGE_INPUT_USERNAME");
-		inputTextData("HERO_LOGINPAGE_INPUT_PASSWORD");
-		getElement("HERO_LOGINPAGE_BTN_LOGIN").click();		
+  	public static void loginToCMAApplication() throws Exception {
+  		inputTextData("LOGINPAGE_INPUT_USERNAME");
+		inputTextData("LOGINPAGE_INPUT_PASSWORD");
+		getElement("LOGINPAGE_BTN_LOGIN").click();		
+	} 	
+  	
+  	public static void navigateToCMAApplication() throws Exception {
+		 click("LAUNCHER_CMA_APP");
+		 click("LAUNCH_CMA_BUTTON");
 	} 	
   	
     /**
@@ -173,13 +171,30 @@ public class ReusableMethods extends SetupDriver {
      * @throws Exception
      */
 	public static void launchApplication(String appName) throws Exception {
-		if(appName.equalsIgnoreCase("DoctorApp")){
-			driver=new RemoteWebDriver(new URL("http://127.0.0.1:4723/wd/hub"),phone1DC);
+		if(appName.equalsIgnoreCase("CMAApp")){
 			deviceName = Init.config.getProperty("deviceName1");
+			String testCaseName = (TEST_DATA.get("TEST_CASE_ID")+"_"+ TEST_DATA.get("STEPNAME")).replaceAll("\\s+","");
+			driver=new AndroidDriver<MobileElement>(new URL("http://127.0.0.1:4723/wd/hub"),phone1DC);
+			driver.manage().timeouts().implicitlyWait(20, TimeUnit.SECONDS);
+			if(config.getProperty("videoCapture").equalsIgnoreCase("true")) {
+				process = (Process) startScreenRecord(testCaseName);
+			}
+			if(config.getProperty("logCapture").equalsIgnoreCase("true")) {
+				process1= (Process) startLogRecord(testCaseName);
+			}
 		}
-		else if(appName.equalsIgnoreCase("MidwifeApp"))
-			driver=new RemoteWebDriver(new URL("http://127.0.0.1:4723/wd/hub"),phone2DC);	
+		else if(appName.equalsIgnoreCase("PatientApp")) {
 		    deviceName = Init.config.getProperty("deviceName2");
+			String testCaseName = (TEST_DATA.get("TEST_CASE_ID")+"_"+ TEST_DATA.get("STEPNAME")).replaceAll("\\s+","");
+			driver=new AndroidDriver<MobileElement>(new URL("http://127.0.0.1:4723/wd/hub"),phone2DC);	
+			driver.manage().timeouts().implicitlyWait(20, TimeUnit.SECONDS);
+			if(config.getProperty("videoCapture").equalsIgnoreCase("true")) {
+				process = (Process) startScreenRecord(testCaseName);
+			}
+			if(config.getProperty("logCapture").equalsIgnoreCase("true")) {
+				process1= (Process) startLogRecord(testCaseName);
+			}
+		}
 	}
 	/**
 	 * This function will logout of the application.
@@ -204,30 +219,27 @@ public class ReusableMethods extends SetupDriver {
 		String temp[]=locatorData.split("~");
 		locateBy=temp[0];
 		locator=temp[1];
-		WebDriverWait wait = new WebDriverWait(driver, 30);			
+		//WebDriverWait wait = new WebDriverWait(driver, 30);			
 		if(locateBy.equalsIgnoreCase("XPATH")){
-			wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath(locator)));
-			element= SetupDriver.driver.findElement(By.xpath(locator));	
-		}
-		else if(locateBy.equalsIgnoreCase("CSS")){
-			wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(locator)));
-			element= SetupDriver.driver.findElement(By.cssSelector(locator));
+			//wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath(locator)));
+			for(int i=1;i<=10;i++) {
+				try {
+					element= SetupDriver.driver.findElement(By.xpath(locator));	
+					break;
+				} catch (Exception e) {
+					scrollDown();
+					if(i==10)
+						throw e;
+				}
+			}
+		
 		}
 		else if(locateBy.equalsIgnoreCase("ID")){
-			wait.until(ExpectedConditions.visibilityOfElementLocated(By.id(locator)));
-			element= SetupDriver.driver.findElement(By.id(locator));
-		}
-		else if(locateBy.equalsIgnoreCase("linktext")){
-			wait.until(ExpectedConditions.visibilityOfElementLocated(By.linkText(locator)));
-			element= SetupDriver.driver.findElement(By.linkText(locator));
-		}
-		else if(locateBy.equalsIgnoreCase("name")){
-			wait.until(ExpectedConditions.visibilityOfElementLocated(By.name(locator)));
-			element= SetupDriver.driver.findElement(By.name(locator));	
+			//wait.until(ExpectedConditions.visibilityOfElementLocated(By.id(locator)));
+			element=driver.findElement(MobileBy.AndroidUIAutomator("new UiScrollable(new UiSelector().scrollable(true).instance(0)).scrollIntoView(new UiSelector().resourceId(\""+locator+"\").instance(0))"));
 		}
 		return element;
 	}
-	
 	/**
 	 * This function will fetch the locator path given in the object repository and it will find the elements as list based on whether it is a xpath, id ,name etc...
 	   User has to just pass the keyword and this function will return the element. Also it wait explicitly for 30 seconds to find the element.
@@ -236,33 +248,30 @@ public class ReusableMethods extends SetupDriver {
 	 * @return - Actual element found based on the keyword.
 	 * @throws Exception
 	 */
-	public static List<WebElement> getElements(String elementORKey)throws Exception{
+	public static List<MobileElement> getElements(String elementORKey)throws Exception{
 		String locatorData,locateBy,locator;
-		List<WebElement> element = null;
+		List<MobileElement> element = null;
 		locatorData=Init.objectRepository.getProperty(elementORKey);
 		String temp[]=locatorData.split("~");
 		locateBy=temp[0];
 		locator=temp[1];
-		WebDriverWait wait = new WebDriverWait(driver, 30);		
+		//WebDriverWait wait = new WebDriverWait(driver, 30);		
 		if(locateBy.equalsIgnoreCase("XPATH")){
-			wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath(locator)));
-			element= SetupDriver.driver.findElements(By.xpath(locator));	
-		}
-		else if(locateBy.equalsIgnoreCase("CSS")){
-			wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(locator)));
-			element= SetupDriver.driver.findElements(By.cssSelector(locator));
+			//wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath(locator)));
+			for(int i=1;i<=10;i++) {
+				try {
+					element= SetupDriver.driver.findElements(By.xpath(locator));	
+					break;
+				} catch (Exception e) {
+					scrollDown();
+					if(i==10)
+						throw e;
+				}
+			}
 		}
 		else if(locateBy.equalsIgnoreCase("ID")){
-			wait.until(ExpectedConditions.visibilityOfElementLocated(By.id(locator)));
-			element= SetupDriver.driver.findElements(By.id(locator));
-		}
-		else if(locateBy.equalsIgnoreCase("linktext")){
-			wait.until(ExpectedConditions.visibilityOfElementLocated(By.linkText(locator)));
-			element= SetupDriver.driver.findElements(By.linkText(locator));
-		}
-		else if(locateBy.equalsIgnoreCase("name")){
-			wait.until(ExpectedConditions.visibilityOfElementLocated(By.name(locator)));
-			element= SetupDriver.driver.findElements(By.name(locator));		
+			//wait.until(ExpectedConditions.visibilityOfElementLocated(By.id(locator)));
+			element=driver.findElements(MobileBy.AndroidUIAutomator("new UiScrollable(new UiSelector().scrollable(true).instance(0)).scrollIntoView(new UiSelector().resourceId(\""+locator+"\").instance(0))"));
 		}
 		return element;
 	}
@@ -276,41 +285,46 @@ public class ReusableMethods extends SetupDriver {
 	 * @param row - The row number of the test case in excel sheet tab.
 	 * @throws Exception
 	 */
-	public static void verifyData(String expectedDataArray[],String reportOrder,String excelTabName,int row) throws Exception{
-		ArrayList<String> actualresult = new ArrayList<String>();
+	public static void verifyData(String expectedDataArray[],String excelTabName,int row, String stepNo) throws Exception{
+		ArrayList<String> actualresultFailures = new ArrayList<String>();
+		ArrayList<String> actualresultSuccess = new ArrayList<String>();
 		boolean status=true;
 		boolean elementDataMatched=true;
 		
-		String testCaseName= TEST_DATA.get("TestCase_ID")+"_"+ TEST_DATA.get("STEPNAME");
+		String testCaseName= TEST_DATA.get("TEST_CASE_ID")+"_"+ TEST_DATA.get("STEPNAME");
 		for(int i=0;i<expectedDataArray.length;i++){
-			int j=0;
-			String actualText = null;
-			if(!TEST_DATA.get(expectedDataArray[i]).isEmpty()&&!TEST_DATA.get(expectedDataArray[i]).equals(null)&&!TEST_DATA.get(expectedDataArray[i]).equals("")){
-				do{
+			//int j=0;
+			if(!TEST_DATA.get(expectedDataArray[i]).isEmpty()&&!TEST_DATA.get(expectedDataArray[i]).equals(null)&&!TEST_DATA.get(expectedDataArray[i]).equals("")
+					&&!TEST_DATA.get(expectedDataArray[i]).equalsIgnoreCase("X")){
+				//do{
+					String actualText=null;
 					WebElement we=getElement(expectedDataArray[i]);
 					actualText=we.getText();
-					System.out.println(actualText);
 					
 					if(!actualText.equals(TEST_DATA.get(expectedDataArray[i]))){
 						elementDataMatched=false;
+						actualresultFailures.add(expectedDataArray[i]+":"+actualText);
 					}
 					else{
 						elementDataMatched=true;
-						break;
+						actualresultSuccess.add(expectedDataArray[i]+":"+actualText);
+						//break;
 					}
-					j++;
-					Thread.sleep(500);
-				}while(j<10);
+					//j++;
+					//Thread.sleep(500);
+				//}while(j<10);
 			}
 			else{
 				String locatorData=Init.objectRepository.getProperty(expectedDataArray[i]);
 				String temp[]=locatorData.split("~");
 				String locator=temp[1];		
 				try{
-					if(driver.findElement(By.xpath(locator)).isDisplayed()){
-						if(!driver.findElement(By.xpath(locator)).getText().isEmpty()) {
-							elementDataMatched=false;
-							actualresult.add(driver.findElement(By.xpath(locator)).getText());
+					if(!TEST_DATA.get(expectedDataArray[i]).trim().equalsIgnoreCase("X")){
+						if(driver.findElement(By.xpath(locator)).isDisplayed()){
+							if(!driver.findElement(By.xpath(locator)).getText().isEmpty()) {
+								elementDataMatched=false;
+								actualresultFailures.add(expectedDataArray[i]+":"+driver.findElement(By.xpath(locator)).getText());
+							}
 						}
 					}
 				}catch(Exception e){
@@ -319,35 +333,36 @@ public class ReusableMethods extends SetupDriver {
 			}
 			if(elementDataMatched==false){
 				status=false;
-				actualresult.add(actualText);
 			}
+
 		}
-		
+
+		if(config.getProperty("screenshotCapture").equalsIgnoreCase("true")) {
+			 takeScreenshot(testCaseName);
+		}
 		if(status==true){
-			stopRecordingAndCaptureScreenshot(testCaseName);
 			if(config.getProperty("htmlReportFlag").equalsIgnoreCase("true"))
-				resultPass(reportOrder,testCaseName,"EXPECTED_RESULT",TEST_DATA.get("ACTUAL_RESULT"));
+				resultPass(TEST_DATA.get("EXPECTED_RESULT"),"Page displayed with the data as expected as in the Test data : Following assertions are passed: "+actualresultSuccess.toString(),stepNo);
 			if(config.getProperty("excelReportFlag").equalsIgnoreCase("true"))
 				writeTestResultsToExcel(excelTabName, row,"Pass",TEST_DATA.get("ACTUAL_RESULT"));
 			if(config.getProperty("tfsResultsUploadFlag").equalsIgnoreCase("true"))
 				uploadResultsToTfs(TEST_DATA.get("ACTUAL_RESULT"), "Passed");
 			if(config.getProperty("tfsImageUploadFlag").equalsIgnoreCase("true")&&config.getProperty("tfsResultsUploadFlag").equalsIgnoreCase("true"))
 				uploadAttachmentToTfs("image");
-			if(config.getProperty("tfsVideoUploadFlag").equalsIgnoreCase("true")&& config.getProperty("tfsResultsUploadFlag").equalsIgnoreCase("true"))
-				uploadAttachmentToTfs("video");
+/*			if(config.getProperty("tfsVideoUploadFlag").equalsIgnoreCase("true")&& config.getProperty("tfsResultsUploadFlag").equalsIgnoreCase("true"))
+				uploadAttachmentToTfs("video");*/
 		}
 		else{
-			stopRecordingAndCaptureScreenshot(testCaseName);
 			if(config.getProperty("htmlReportFlag").equalsIgnoreCase("true"))
-				resultFail(reportOrder,testCaseName,"EXPECTED_RESULT",actualresult.toString()+ "was displayed");
+				resultFail(TEST_DATA.get("EXPECTED_RESULT"),"The following assertions are failed: "+actualresultFailures.toString(),stepNo);
 			if(config.getProperty("excelReportFlag").equalsIgnoreCase("true"))
-				writeTestResultsToExcel(excelTabName, row,"Fail",actualresult.toString()+ "was displayed");
+				writeTestResultsToExcel(excelTabName, row,"Fail",actualresultFailures.toString()+ "was displayed");
 			if(config.getProperty("tfsResultsUploadFlag").equalsIgnoreCase("true"))
-				uploadResultsToTfs(actualresult.toString()+ "was displayed", "Failed");
+				uploadResultsToTfs(actualresultFailures.toString()+ "was displayed", "Failed");
 			if(config.getProperty("tfsImageUploadFlag").equalsIgnoreCase("true")&&config.getProperty("tfsResultsUploadFlag").equalsIgnoreCase("true"))
 				uploadAttachmentToTfs("image");
-			if(config.getProperty("tfsVideoUploadFlag").equalsIgnoreCase("true")&& config.getProperty("tfsResultsUploadFlag").equalsIgnoreCase("true"))
-				uploadAttachmentToTfs("video");
+/*			if(config.getProperty("tfsVideoUploadFlag").equalsIgnoreCase("true")&& config.getProperty("tfsResultsUploadFlag").equalsIgnoreCase("true"))
+				uploadAttachmentToTfs("video");*/
 		}
 
 	}
@@ -380,7 +395,7 @@ public class ReusableMethods extends SetupDriver {
 	public static void inputListData(String textFiledElementKeyWord,String listElementKeyWord) throws Exception{
 		if(!TEST_DATA.get(textFiledElementKeyWord).isEmpty()){
 			inputTextData(textFiledElementKeyWord);
-			List<WebElement> list = getElements(listElementKeyWord);
+			List<MobileElement> list = getElements(listElementKeyWord);
 			for (WebElement listField : list) {
 				String listValue = listField.getText();
 				if (listValue.equalsIgnoreCase(TEST_DATA.get(textFiledElementKeyWord))){
@@ -398,7 +413,7 @@ public class ReusableMethods extends SetupDriver {
 	 * @param testDataField - The keyword given in the test data excel column as title
 	 * @throws Exception
 	 */
-	public static void inputComboboxData(String comboFiledElementKeyWord,String optionsElementKeyWord) throws Exception{
+/*	public static void inputComboboxData(String comboFiledElementKeyWord,String optionsElementKeyWord) throws Exception{
 		if(!TEST_DATA.get(comboFiledElementKeyWord).isEmpty()){
 			click(comboFiledElementKeyWord);
 			List<WebElement> list = getElements(optionsElementKeyWord);
@@ -409,7 +424,30 @@ public class ReusableMethods extends SetupDriver {
 				}
 			}
 		}
+	}*/
+	public static void inputComboboxData(String comboFiledElementKeyWord) throws Exception{
+		if(!TEST_DATA.get(comboFiledElementKeyWord).isEmpty()){
+			click(comboFiledElementKeyWord);
+			List<MobileElement> list = getElements("CHECK_BOX_SELECTION");
+			System.out.println(list);
+			for (WebElement comboField : list) {
+				String comboValue = comboField.getText();
+				if (comboValue.equalsIgnoreCase(TEST_DATA.get(comboFiledElementKeyWord))){
+					click(comboField);
+				}
+			}
+		}
 	}
+/*	public static void inputPopUpData(String comboFiledElementKeyWord) throws Exception{
+		if(!TEST_DATA.get(comboFiledElementKeyWord).isEmpty()){
+			click("CHECK_BOX_SELECTION"+"'No')]");
+		}
+		click("CHECK_BOX_SELECTION"+"'No')]");
+		String s=objectRepository.getProperty("CHECK_BOX_SELECTION");
+		System.out.println(s+"'"+TEST_DATA.get("HOME_VISIT_FEVER_TYPE")+"')]");
+		WebElement we =getElementConstructed(s+"'"+TEST_DATA.get("HOME_VISIT_FEVER_TYPE")+"')]");		
+		we.click();
+	}*/
 	/**
 	 * This function will click on a button based on the keywords passed.It will find the button locator from the object repository.It is possible to use çlick'funnction directly, This function is added to keep the uniformity in calling methods.
 	 * @param elementKeyWord - The keyword given in the Object repository matching the locator of web UI
@@ -436,100 +474,27 @@ public class ReusableMethods extends SetupDriver {
 	 * @param testCaseName - Name of the test case 
 	 * @throws Exception
 	 */
-	public static void stopRecordingAndCaptureScreenshot(String testCaseName) throws Exception{
-		 Thread.sleep(2000);
-		 ReusableMethods.takeScreenshot(testCaseName);
-		 ReusableMethods.stopScreenRecord(process,testCaseName);
+	public static void stopVideoAndLogRecording() throws Exception{
+		String testCaseName = TEST_DATA.get("TEST_CASE_ID")+"_"+ TEST_DATA.get("STEPNAME");	
+		if(config.getProperty("videoCapture").equalsIgnoreCase("true")) {
+			 stopScreenRecord(process,testCaseName);
+		}
+		if(config.getProperty("logCapture").equalsIgnoreCase("true")) {
+			 stopLogRecord(process1,testCaseName);
+		 }
 		 
 	}
-	/**
-	 * This function will log the test result as pass to the html report.
-	 * @param reportOrder - Order in which the test case is displayed in the html report
-	 * @param testCaseName - Name of the test case
-	 * @param expectedResultField - Expected result field keyword in excel so taht it will fetch the data and display in the html report
-	 * @param actualResult - Actual result after the execution
-	 * @throws Exception
-	 */
-	public static void resultPass(String reportOrder,String testCaseName,String expectedResultField, String actualResult)throws Exception{
-		switch(reportOrder){
-		case "child1":child1.log(LogStatus.PASS,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;
-		case "child2":child2.log(LogStatus.PASS,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;
-        case "child3":child3.log(LogStatus.PASS,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;
-        case "child4":child4.log(LogStatus.PASS,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;
-        case "child5":child5.log(LogStatus.PASS,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;	
-        case "child6":child6.log(LogStatus.PASS,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;	
-        case "child7":child7.log(LogStatus.PASS,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;
-        case "child8":child8.log(LogStatus.PASS,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;
-        case "child9":child9.log(LogStatus.PASS,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;
-        case "child10":child10.log(LogStatus.PASS,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;
-        case "child11":child11.log(LogStatus.PASS,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;
-        case "child12":child12.log(LogStatus.PASS,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;
-        case "child13":child13.log(LogStatus.PASS,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;
-        case "child14":child14.log(LogStatus.PASS,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;
-        case "child15":child15.log(LogStatus.PASS,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;
-        case "child16":child16.log(LogStatus.PASS,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;
-        case "child17":child17.log(LogStatus.PASS,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;
-        case "child18":child18.log(LogStatus.PASS,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;
-		}
-	}
 	
-	/**
-	 * This function will log the test result as fail to the html report.
-	 * @param reportOrder - Order in which the test case is displayed in the html report
-	 * @param testCaseName - Name of the test case
-	 * @param expectedResultField - Expected result field keyword in excel so taht it will fetch the data and display in the html report
-	 * @param actualResult - Actual result after the execution
-	 * @throws Exception
-	 */
-	public static void resultFail(String reportOrder,String testCaseName,String expectedResultField, String actualResult) throws Exception{
-		switch(reportOrder){
-		case "child1":child1.log(LogStatus.FAIL,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;
-		case "child2":child2.log(LogStatus.FAIL,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;
-		case "child3":child3.log(LogStatus.FAIL,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;
-		case "child4":child4.log(LogStatus.FAIL,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;
-        case "child5":child5.log(LogStatus.FAIL,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult); break;
-        case "child6":child6.log(LogStatus.FAIL,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult);break;
-        case "child7":child7.log(LogStatus.FAIL,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult);break;
-        case "child8":child8.log(LogStatus.FAIL,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult);break;
-        case "child9":child9.log(LogStatus.FAIL,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult);break;
-        case "child10":child10.log(LogStatus.FAIL,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult);break;
-        case "child11":child11.log(LogStatus.FAIL,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult);break;
-        case "child12":child12.log(LogStatus.FAIL,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult);break;
-        case "child13":child13.log(LogStatus.FAIL,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult);break;
-        case "child14":child14.log(LogStatus.FAIL,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult);break;
-        case "child15":child15.log(LogStatus.FAIL,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult);break;
-        case "child16":child16.log(LogStatus.FAIL,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult);break;
-        case "child17":child17.log(LogStatus.FAIL,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult);break;
-        case "child18":child18.log(LogStatus.FAIL,testCaseName," Expected="+TEST_DATA.get(expectedResultField)+" and Actual="+actualResult);break;
-		}
+	public static void resultPass(String expectedResultField, String actualResult, String stepNo)throws Exception{
+		parent=report.startTest("TC ID : "+TEST_DATA.get("TEST_CASE_ID")+"_"+stepNo+" : "+TEST_DATA.get("STEPNAME"));
+		String reportMessage="<u><b>Expected Result</b></u>"+"<br />"+expectedResultField+"<br />"+"Test Data,"+"<br />"+TEST_DATA+"<br />"+"<u><b>Actual Result</b></u>"+"<br />"+actualResult+"<br />";
+		parent.log(LogStatus.PASS,reportMessage);
+		
 	}
-	
-	/**
-	 * This function will add the test case result to the html report under the test suite
-	 * @param reportOrder - Order in which the test case is displayed in the html report
-	 * @throws Exception
-	 */
-	public static void appendChild(String reportOrder)throws Exception{
-		switch(reportOrder){
-		case "child1":parent.appendChild(child1); break;
-		case "child2":parent.appendChild(child2); break;
-		case "child3":parent.appendChild(child3); break;
-		case "child4":parent.appendChild(child4); break;
-		case "child5":parent.appendChild(child5); break;
-		case "child6":parent.appendChild(child6); break;
-		case "child7":parent.appendChild(child7); break;
-		case "child8":parent.appendChild(child8); break;
-		case "child9":parent.appendChild(child9); break;
-		case "child10":parent.appendChild(child10); break;
-		case "child11":parent.appendChild(child11); break;
-		case "child12":parent.appendChild(child12); break;
-		case "child13":parent.appendChild(child13); break;
-		case "child14":parent.appendChild(child14); break;
-		case "child15":parent.appendChild(child15); break;
-		case "child16":parent.appendChild(child16); break;
-		case "child17":parent.appendChild(child17); break;
-		case "child18":parent.appendChild(child18); break;
-		}
+	public static void resultFail(String expectedResultField, String actualResult, String stepNo)throws Exception{
+		parent=report.startTest("TC ID : "+TEST_DATA.get("TEST_CASE_ID")+"_"+stepNo+" : "+TEST_DATA.get("STEPNAME"));
+		String reportMessage="<u><b>Expected Result</b></u>"+"<br />"+expectedResultField+"<br />"+"Test Data,"+"<br />"+TEST_DATA+"<br />"+"<u><b>Actual Result</b></u>"+"<br />"+actualResult+"<br />";
+		parent.log(LogStatus.FAIL,reportMessage);
 	}
 	
 	/**
@@ -538,13 +503,13 @@ public class ReusableMethods extends SetupDriver {
 	 * @throws Exception
 	 */
 	public static void takeScreenshot(String testCaseName) throws Exception{
-		File file = new File(SetupDriver.screenshotPath); 
-        if (!file.exists())
-        	file.mkdirs();
-        screenshotFilePath = file+"\\"+testCaseName+"-"+dateFormat.format(new Date())+".png";
-		screenshotFileName = testCaseName+"-"+dateFormat.format(new Date())+".png";
-	    File srcFile=driver.getScreenshotAs(OutputType.FILE);
-	    FileUtils.copyFile(srcFile,new File(screenshotFilePath));
+			File file = new File(SetupDriver.screenshotPath); 
+	        if (!file.exists())
+	        	file.mkdirs();
+	        screenshotFilePath = file+"\\"+testCaseName+"-"+dateFormat.format(new Date())+".png";
+			screenshotFileName = testCaseName+"-"+dateFormat.format(new Date())+".png";
+		    File srcFile=driver.getScreenshotAs(OutputType.FILE);
+		    FileUtils.copyFile(srcFile,new File(screenshotFilePath));
 	}
 	
 	/**
@@ -555,7 +520,8 @@ public class ReusableMethods extends SetupDriver {
 	 */
 	public static void click(String elementKeyWord) throws Exception{
 		WebElement we =getElement(elementKeyWord);		
-        boolean clicked = false;
+		we.click();
+       /* boolean clicked = false;
         int i=0;
         do{
             try {
@@ -570,7 +536,7 @@ public class ReusableMethods extends SetupDriver {
                 	throw e;
                 continue;     
             }         	        
-        } while (clicked ==false && i<40);
+        } while (clicked ==false && i<40);*/
 	}
 	
 	/**
@@ -630,7 +596,8 @@ public class ReusableMethods extends SetupDriver {
 	 * @throws Exception
 	 */
 	public static void click(WebElement element) throws Exception{	
-        boolean clicked = false;
+		element.click();
+/*        boolean clicked = false;
         int i=0;
         do{
             try {
@@ -643,7 +610,7 @@ public class ReusableMethods extends SetupDriver {
             	else
             		throw e;
             } 
-        } while (!clicked);
+        } while (!clicked);*/
 	}
 	
 	/**
@@ -653,12 +620,12 @@ public class ReusableMethods extends SetupDriver {
 	 * @param radioButtonKeyword3 - Gender Other radio button keyword
 	 * @throws Exception
 	 */
-	public static void selectGender(String radioButtonKeyword1,String radioButtonKeyword2,String radioButtonKeyword3)throws Exception{
-  		if(ReusableMethods.TEST_DATA.get("GENDER").equalsIgnoreCase("Male"))
+	public static void inputRadioButton(String Value,String radioButtonKeyword1,String radioButtonKeyword2,String radioButtonKeyword3)throws Exception{
+  		if(Value.equalsIgnoreCase("Yes"))
   			ReusableMethods.clickButton(radioButtonKeyword1);
-  		else if(ReusableMethods.TEST_DATA.get("GENDER").equalsIgnoreCase("Female"))
+  		else if(Value.equalsIgnoreCase("No"))
   			ReusableMethods.clickButton(radioButtonKeyword2);
-  		else if(ReusableMethods.TEST_DATA.get("GENDER").equalsIgnoreCase("Other"))
+  		else if(Value.equalsIgnoreCase("No Data"))
   			ReusableMethods.clickButton(radioButtonKeyword3);
 	}
 	
@@ -690,11 +657,18 @@ public class ReusableMethods extends SetupDriver {
 	 * @param row - The row number in the excel where test scenario exists
 	 * @throws Exception
 	 */
-	public static void initiateTest(String excelTabName,int row,String appName) throws Exception{
+	public static Boolean initiateTest(String excelTabName,int row) throws Exception{
 		 getTestData(excelTabName,row);
-		 String testCaseName = (TEST_DATA.get("TestCase_ID")+"_"+ TEST_DATA.get("STEPNAME")).replaceAll("\\s+","");
-		 launchApplication(appName);
-		 process = (Process) ReusableMethods.startScreenRecord(testCaseName);
+		 if(scope.equalsIgnoreCase("Smoke")){
+				if(TEST_DATA.get("SCOPE").equalsIgnoreCase("Smoke")) {
+					 return true;
+				}
+				else
+					return false;
+		 }
+		 else {
+			 return true;
+		 }
 	}
 	
 	/**
@@ -706,19 +680,21 @@ public class ReusableMethods extends SetupDriver {
 	 * @param exception - Exception caught from the main class.
 	 * @throws Exception
 	 */
-	public static void suspendTest(String excelTabName, int row,String reportOrder,Exception exception) throws Exception{
-		String testCaseName = TEST_DATA.get("TestCase_ID")+"_"+ TEST_DATA.get("STEPNAME");	
-		stopRecordingAndCaptureScreenshot(testCaseName);
+	public static void suspendTest(String excelTabName, int row,Exception exception,String stepNo) throws Exception{
+		String testCaseName = TEST_DATA.get("TEST_CASE_ID")+"_"+ TEST_DATA.get("STEPNAME");	
+		if(config.getProperty("screenshotCapture").equalsIgnoreCase("true")) {
+			 takeScreenshot(testCaseName);
+		}
 		if(config.getProperty("htmlReportFlag").equalsIgnoreCase("true"))
-			resultFail(reportOrder,testCaseName,"EXPECTED_RESULT",getExceptionString(exception));
+			resultFail(TEST_DATA.get("EXPECTED_RESULT"),getException(exception),stepNo);
 		if(config.getProperty("excelReportFlag").equalsIgnoreCase("true"))
 			writeTestResultsToExcel(excelTabName, row,"Fail",getExceptionString(exception));
 		if(config.getProperty("tfsResultsUploadFlag").equalsIgnoreCase("true"))
 			 uploadResultsToTfs(getExceptionString(exception),"Failed");
 		if(config.getProperty("tfsImageUploadFlag").equalsIgnoreCase("true")&&config.getProperty("tfsResultsUploadFlag").equalsIgnoreCase("true"))
 			uploadAttachmentToTfs("image");
-		if(config.getProperty("tfsVideoUploadFlag").equalsIgnoreCase("true")&& config.getProperty("tfsResultsUploadFlag").equalsIgnoreCase("true"))
-			uploadAttachmentToTfs("video");
+/*		if(config.getProperty("tfsVideoUploadFlag").equalsIgnoreCase("true")&& config.getProperty("tfsResultsUploadFlag").equalsIgnoreCase("true"))
+			uploadAttachmentToTfs("video");*/
 	}
 	
 	/**
@@ -773,7 +749,7 @@ public class ReusableMethods extends SetupDriver {
 			
 			}catch(Exception e){
 				try {
-					String message = "TFS Upload Failed for "+ TEST_DATA.get("TestCase_ID")+"_"+testRunId+". Exception : " + getExceptionString(e);
+					String message = "TFS Upload Failed for "+ TEST_DATA.get("TEST_CASE_ID")+"_"+testRunId+". Exception : " + getExceptionString(e);
 					logger.info(message);  
 					e.printStackTrace();
 				} catch (Exception e1) {
@@ -824,7 +800,7 @@ public class ReusableMethods extends SetupDriver {
 
 		}catch(Exception e){
 			try {
-				String message = "TFS Image/video Upload Failed for "+ TEST_DATA.get("TestCase_ID")+"_"+testRunId+". Exception : " + getExceptionString(e);
+				String message = "TFS Image/video Upload Failed for "+ TEST_DATA.get("TEST_CASE_ID")+"_"+testRunId+". Exception : " + getExceptionString(e);
 				logger.info(message);  
 				e.printStackTrace();
 			} catch (Exception e1) {
@@ -841,12 +817,18 @@ public class ReusableMethods extends SetupDriver {
  * @throws Exception
  */
 	public static Object startScreenRecord(String testCaseName) throws Exception {
-		Process p,p1;
-		p=Runtime.getRuntime().exec("adb shell mkdir /sdcard/tempFile");
-		p.waitFor();
-		p1 = Runtime.getRuntime().exec( "adb -s "+deviceName+" shell screenrecord /sdcard/tempFile/"+testCaseName+".mp4" );
+		Process p;
+		p = Runtime.getRuntime().exec("adb -s "+deviceName+" shell screenrecord /sdcard/tempFile/"+testCaseName+".mp4");
 		System.out.println("adb -s "+deviceName+" shell screenrecord /sdcard/tempFile/"+testCaseName+".mp4");
-		return p1;	
+		return p;	
+
+	}
+	public static Object startLogRecord(String testCaseName) throws Exception {
+		Process p;
+		p = Runtime.getRuntime().exec("adb shell logcat -v time -f /sdcard/tempFile/"+testCaseName+".txt&");
+		System.out.println("adb shell logcat -v time -f /sdcard/tempFile/"+testCaseName+".txt&");
+		Thread.sleep(1000);
+		return p;	
 
 	}
 /**
@@ -856,25 +838,40 @@ public class ReusableMethods extends SetupDriver {
  * @throws Exception
  */
 	public static void stopScreenRecord(Process processRecordingVideo,String testCaseName) throws Exception {   
-		processRecordingVideo.destroy();
-		Process p1,p2;
+		processRecordingVideo.destroyForcibly();
+		Process process;
 		String testCaseTempName = testCaseName.replaceAll("\\s+","");
-		Thread.sleep(3000);
-		p1 = Runtime.getRuntime().exec("adb pull /sdcard/tempFile/"+testCaseTempName+".mp4"+" "+tempPath);
-		p1.waitFor();
-		
-		System.out.println("adb pull /sdcard/tempFile/"+testCaseTempName+".mp4"+" "+tempPath);
-		
+		Thread.sleep(1000);
+		process = Runtime.getRuntime().exec("adb pull /sdcard/tempFile/"+testCaseTempName+".mp4"+" "+tempPath);
+		process.waitFor(30, TimeUnit.SECONDS);
+		process.destroy();
+		System.out.println("adb pull /sdcard/tempFile/"+testCaseTempName+".mp4"+" "+tempPath);	
 		File file = new File(SetupDriver.videoPath); 
         if (!file.exists())
         	file.mkdirs();
         videoFilePath = file+"\\"+testCaseName+"-"+dateFormat.format(new Date())+".mp4";
 	    File srcFile= new File(tempPath+"\\"+testCaseTempName+".mp4");
-	    FileUtils.copyFile(srcFile,new File(videoFilePath));    
-
-		p2 = Runtime.getRuntime().exec("adb shell rm -r /sdcard/tempFile");
-		p2.waitFor();
-	    
+	    Thread.sleep(1000);
+	    FileUtils.copyFile(srcFile,new File(videoFilePath)); 
+	}
+	
+	public static void stopLogRecord(Process processLog,String testCaseName) throws Exception {   
+		processLog.destroyForcibly();
+		Process process;
+		String testCaseTempName = testCaseName.replaceAll("\\s+","");
+		Thread.sleep(1000);
+		process = Runtime.getRuntime().exec("adb pull /sdcard/tempFile/"+testCaseTempName+".txt"+" "+tempPath);
+		process.waitFor(30, TimeUnit.SECONDS);
+		process.destroy();
+		System.out.println("adb pull /sdcard/tempFile/"+testCaseTempName+".txt"+" "+tempPath);
+		File file = new File(SetupDriver.logPath); 
+        if (!file.exists())
+        	file.mkdirs();
+        logFilePath = file+"\\"+testCaseName+"-"+dateFormat.format(new Date())+".txt";
+	    File srcFile= new File(tempPath+"\\"+testCaseTempName+".txt");
+	    Thread.sleep(1000);
+	    FileUtils.copyFile(srcFile,new File(logFilePath));  	    
+	   
 	}
 /**
  * 
@@ -891,4 +888,62 @@ public class ReusableMethods extends SetupDriver {
 	        file.delete();
 	}
 	
+	public static String getException(Exception e) {
+		StringWriter sw = new StringWriter();
+		PrintWriter pw = new PrintWriter(sw);
+		e.printStackTrace(pw);
+		return sw.toString();
+	}
+	
+	public static void scrollDown()
+  	{
+	    Dimension size = driver.manage().window().getSize();
+	    //Starting y location set to 80% of the height (near bottom)
+	    int starty = (int) (size.height * 0.80);
+	    //Ending y location set to 20% of the height (near top)
+	    int endy = (int) (size.height * 0.20);
+	    //x position set to mid-screen horizontally
+	    int startx = size.width / 2;
+	    
+	    TouchAction action = new TouchAction(driver);
+	    action.press(PointOption.point(startx, starty))
+        .moveTo(PointOption.point(startx, endy)).release().perform();
+  	}
+	public static void scrollUp()
+  	{
+	    Dimension size = driver.manage().window().getSize();
+	    //Starting y location set to 80% of the height (near bottom)
+	    int starty = (int) (size.height * 0.20);
+	    //Ending y location set to 20% of the height (near top)
+	    int endy = (int) (size.height * 0.80);
+	    //x position set to mid-screen horizontally
+	    int startx = size.width / 2;
+	    
+	    TouchAction action = new TouchAction(driver);
+	    action.press(PointOption.point(startx, starty))
+        .moveTo(PointOption.point(startx, endy)).release().perform();
+  	}
+	public static void swipeRight()
+  	{
+		Dimension size = driver.manage().window().getSize();
+        int  startY = (int) (size.height / 2);
+        int startX = (int) (size.width * 0.90);
+        int endX = (int) (size.width * 0.05);
+        
+	    TouchAction action = new TouchAction(driver);
+	    action.press(PointOption.point(startY, startX))
+        .moveTo(PointOption.point(endX, startY)).release().perform();
+  	}
+	public static void swipeLeft()
+  	{
+		Dimension size = driver.manage().window().getSize();
+        int startY = (int) (size.height / 2);
+        int startX = (int) (size.width * 0.05);
+        int endX = (int) (size.width * 0.90);
+        
+	    TouchAction action = new TouchAction(driver);
+	    action.press(PointOption.point(startX, startY))
+        .moveTo(PointOption.point(endX, startY)).release().perform();
+  	}
+  
 }

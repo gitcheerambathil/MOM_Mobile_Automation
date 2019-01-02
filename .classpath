@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
 	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="src" path="resource"/>
 	<classpathentry exported="true" kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="lib" path="libs/extentreports-java-2.41.1.jar"/>
 	<classpathentry kind="lib" path="libs/freemarker-2.3.23.jar"/>
@@ -10,8 +11,6 @@
 	<classpathentry kind="lib" path="libs/pdfbox-app-2.0.3.jar"/>
 	<classpathentry kind="lib" path="libs/poi-3.9.jar"/>
 	<classpathentry kind="lib" path="libs/saxon-8.7.jar"/>
-	<classpathentry kind="lib" path="libs/selenium-server-standalone-2.42.2.jar"/>
-	<classpathentry kind="lib" path="libs/selenium-server-standalone-3.0.0-beta2.jar"/>
 	<classpathentry kind="lib" path="libs/sqlite-jdbc-3.8.11.1.jar"/>
 	<classpathentry kind="lib" path="libs/testng.jar"/>
 	<classpathentry kind="lib" path="libs/jxl.jar"/>
@@ -19,6 +18,9 @@
 	<classpathentry kind="lib" path="libs/jackson-databind-2.6.3 (1).jar"/>
 	<classpathentry kind="lib" path="libs/jackson-annotations-2.6.3.jar"/>
 	<classpathentry kind="lib" path="libs/jackson-core-2.6.3.jar"/>
-	<classpathentry kind="lib" path="libs/java-client-5.0.0-BETA2.jar"/>
+	<classpathentry kind="lib" path="libs/java-client-6.1.0.jar"/>
+	<classpathentry kind="lib" path="libs/selenium-java-3.0.1-sources (1).jar"/>
+	<classpathentry kind="lib" path="libs/selenium-server-standalone-3.141.59.jar"/>
+	<classpathentry kind="lib" path="libs/selenium-server-standalone-2.42.2.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
